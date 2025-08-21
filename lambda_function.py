@@ -69,9 +69,9 @@ async def download_page_content(url):
         # Navigate to URL
         print(f"Navigating to URL: {url}")
         try:
-            await page.goto(url, timeout=60000)
+            await page.goto(url, timeout=300000)
             try:
-                await page.wait_for_load_state('networkidle', timeout=60000)
+                await page.wait_for_load_state('networkidle', timeout=300000)
             except Exception as e:
                 print(f"Network idle state timed out: {e}")
             print("Page loaded successfully.")
