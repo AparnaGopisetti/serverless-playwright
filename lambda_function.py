@@ -9,6 +9,8 @@ import logging
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
+os.environ["PLAYWRIGHT_BROWSERS_PATH"] = "/ms-playwright-browsers"
+
 def scrape_ssr_page(url):
     with sync_playwright() as p:
         browser = p.chromium.launch(
