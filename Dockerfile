@@ -32,8 +32,8 @@ COPY requirements.txt .
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Install Playwright and Chromium
-RUN pip install --no-cache-dir playwright \
+# Install Playwright (Lambda-compatible version) and Chromium
+RUN pip install --no-cache-dir playwright==1.32.0 \
     && playwright install chromium
 
 # Copy Lambda function
