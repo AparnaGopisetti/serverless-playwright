@@ -1,0 +1,13 @@
+{
+  "bucket": "playwright-scraper-bucket",
+  "urls": [
+    "https://www.aa.com/i18n/travel-info/baggage/checked-baggage-policy.jsp",
+    "https://www.aa.com/i18n/travel-info/special-assistance/pets.jsp",
+    "https://www.aa.com/i18n/travel-info/special-assistance/traveling-children.jsp",
+    "https://www.aa.com/i18n/travel-info/baggage/delayed-or-damaged-baggage.jsp",
+    "https://www.aa.com/i18n/customer-service/payment-options/travel-credit.jsp",
+    "https://www.aa.com/i18n/travel-info/special-assistance/special-assistance.jsp",
+    "https://www.aa.com/i18n/travel-info/check-in-and-arrival.jsp",
+    "https://www.aa.com/web/i18n/aadvantage-program/discover/tab-content/status-overview.html"
+  ]
+}

@@ -87,38 +87,47 @@ async def download_page_content(url):
 
         return content
 
-async def main(event):
-    """Main async function for Lambda."""
-    # Extract parameters from event payload
-    url = event.get('url') or "https://www.aa.com/i18n/travel-info/baggage/checked-baggage-policy.jsp"
-    bucket_name = event.get('bucket') or "playwright-scraper-bucket"
-    output_key = event.get('output_key') or "output.html"
+async def main(event=None):
+    # Load URLs and bucket from local JSON file
+    print("Loading URLs from JSON file...")
+    with open(URLS_FILE, 'r') as f:
+        data = json.load(f)
     
-    # Download page content
-    content = await download_page_content(url)
+    bucket_name = data.get("bucket") or "playwright-scraper-bucket"
+    urls = data.get("urls", [])
 
-    # Upload content to S3
-    try:
-        print("Uploading content to S3...")
-        s3_client = boto3.client('s3')
-        s3_client.put_object(
-            Bucket=bucket_name,
-            Key=output_key,
-            Body=content,
-            ContentType='text/html; charset=utf-8'
-        )
-    except Exception as e:
-        print(f"Error uploading to S3: {e}")
-        raise
+    s3_client = boto3.client('s3')
+    results = []
 
-    print("Source code uploaded successfully")
+    for url in urls:
+        print(f"Processing URL: {url}")
+        content = await download_page_content(url)
+        
+        # Generate S3 filename from last part of URL
+        path = urlparse(url).path
+        filename = (path.rstrip('/').split('/')[-1] or "index") + ".html"
+        print(f"Uploading to S3 as: {filename}")
+
+        try:
+            s3_client.put_object(
+                Bucket=bucket_name,
+                Key=filename,
+                Body=content,
+                ContentType='text/html; charset=utf-8'
+            )
+            print(f"Uploaded successfully: {filename}")
+            results.append({"url": url, "s3_key": filename})
+        except Exception as e:
+            print(f"Error uploading {filename} to S3: {e}")
+            raise
+
+    print("All URLs processed and uploaded successfully.")
     return {
-        'statusCode': 200,
-        'message': 'Source code uploaded successfully',
-        'bucket_name': bucket_name,
-        'source_code_key': output_key
+        "statusCode": 200,
+        "message": "Source code uploaded successfully",
+        "bucket_name": bucket_name,
+        "processed_files": results
     }
-
 def handler(event, context):
     """Lambda handler wrapping the async main function."""
     return asyncio.run(main(event))
