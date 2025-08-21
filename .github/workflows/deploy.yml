@@ -44,20 +44,17 @@ jobs:
         run: |
           docker push $IMAGE_URI
 
-      - name: Deploy Lambda via SAM
+      - name: Update Lambda function to use new image
         run: |
-          sam build
-          sam deploy --no-confirm-changeset --no-fail-on-empty-changeset \
-            --stack-name playwright-scraper-stack \
-            --capabilities CAPABILITY_IAM \
-            --region ${{ secrets.AWS_REGION }} \
-            --image-repository $IMAGE_URI
+          aws lambda update-function-code \
+            --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
+            --image-uri $IMAGE_URI
 
       - name: Test Lambda
         run: |
           aws lambda invoke \
             --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
             --cli-binary-format raw-in-base64-out \
-            --payload '{"url":"https://www.aa.com/i18n/travel-info/baggage/checked-baggage-policy.jsp"}' \
+            --payload '{"url":"https://www.aa.com/i18n/travel-info/baggage/checked-baggage-policy.jsp","bucket":"playwright-scraper-bucket","output_key":"output.html"}' \
             response.json
           cat response.json

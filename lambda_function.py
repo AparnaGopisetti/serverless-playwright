@@ -1,96 +1,124 @@
-import json
+# lambda_function.py
+import asyncio
 import boto3
-import os
-from datetime import datetime
-from playwright.sync_api import sync_playwright
-from botocore.exceptions import ClientError
-import logging
+from playwright.async_api import async_playwright
 
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
+async def scroll_to_bottom(page):
+    """Scroll to the bottom of a page to load dynamic content."""
+    try:
+        previous_height = await page.evaluate('document.body.scrollHeight')
+        while True:
+            await page.evaluate('window.scrollTo(0, document.body.scrollHeight)')
+            await asyncio.sleep(3)
+            current_height = await page.evaluate('document.body.scrollHeight')
+            if current_height == previous_height:
+                break
+            previous_height = current_height
+    except Exception as e:
+        print(f"Error during scrolling: {e}")
+        raise
 
-os.environ["PLAYWRIGHT_BROWSERS_PATH"] = "/ms-playwright-browsers"
-
-def scrape_ssr_page(url):
-    with sync_playwright() as p:
-        browser = p.chromium.launch(
+async def download_page_content(url):
+    """Launch Chromium, navigate to URL, scroll, and get page content."""
+    async with async_playwright() as p:
+        print("Launching browser...")
+        browser = await p.chromium.launch(
             headless=True,
             args=[
-                '--no-sandbox',
-                '--disable-setuid-sandbox',
-                '--disable-gpu',
-                '--disable-dev-shm-usage',
-                '--single-process'
+                "--disable-gpu",
+                "--no-sandbox",
+                "--single-process",
+                "--disable-dev-shm-usage",
+                "--no-zygote",
+                "--disable-setuid-sandbox",
+                "--disable-accelerated-2d-canvas",
+                "--no-first-run",
+                "--no-default-browser-check",
+                "--disable-background-networking",
+                "--disable-background-timer-throttling",
+                "--disable-client-side-phishing-detection",
+                "--disable-component-update",
+                "--disable-default-apps",
+                "--disable-domain-reliability",
+                "--disable-features=AudioServiceOutOfProcess",
+                "--disable-hang-monitor",
+                "--disable-ipc-flooding-protection",
+                "--disable-popup-blocking",
+                "--disable-prompt-on-repost",
+                "--disable-renderer-backgrounding",
+                "--disable-sync",
+                "--force-color-profile=srgb",
+                "--metrics-recording-only",
+                "--mute-audio",
+                "--no-pings",
+                "--use-gl=swiftshader",
+                "--window-size=1280,1696"
             ]
         )
-        context = browser.new_context(
-            user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+
+        context = await browser.new_context(
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
         )
-        page = context.new_page()
+        page = await context.new_page()
+
+        # Navigate to URL
+        print(f"Navigating to URL: {url}")
         try:
-            page.goto(url, wait_until='domcontentloaded', timeout=20000)
-            page.wait_for_selector("body", timeout=20000)
-            full_html = page.content()
-            return {
-                "url": url,
-                "html": full_html,
-                "status": "success",
-                "timestamp": datetime.utcnow().isoformat()
-            }
+            await page.goto(url, timeout=60000)
+            try:
+                await page.wait_for_load_state('networkidle', timeout=60000)
+            except Exception as e:
+                print(f"Network idle state timed out: {e}")
+            print("Page loaded successfully.")
+
+            # Scroll to bottom
+            await scroll_to_bottom(page)
+            await page.wait_for_timeout(5000)
+            print("Scrolled to the bottom.")
+
+            # Get the page content
+            content = await page.content()
         except Exception as e:
-            logger.error(f"Error scraping {url}: {str(e)}")
-            return {
-                "url": url,
-                "error": str(e),
-                "status": "failed",
-                "timestamp": datetime.utcnow().isoformat()
-            }
+            print(f"Failed to load page: {e}")
+            raise
         finally:
-            browser.close()
+            await browser.close()
+            print("Browser closed.")
 
-def upload_to_s3(data, bucket, key):
-    s3 = boto3.client('s3')
+        return content
+
+async def main(event):
+    """Main async function for Lambda."""
+    # Extract parameters from event payload
+    url = event.get('url') or "https://www.aa.com/i18n/travel-info/baggage/checked-baggage-policy.jsp"
+    bucket_name = event.get('bucket') or "playwright-scraper-bucket"
+    output_key = event.get('output_key') or "output.html"
+    
+    # Download page content
+    content = await download_page_content(url)
+
+    # Upload content to S3
     try:
-        s3.put_object(
-            Bucket=bucket,
-            Key=key,
-            Body=json.dumps(data, indent=2).encode('utf-8'),
-            ContentType='application/json'
+        print("Uploading content to S3...")
+        s3_client = boto3.client('s3')
+        s3_client.put_object(
+            Bucket=bucket_name,
+            Key=output_key,
+            Body=content,
+            ContentType='text/html; charset=utf-8'
         )
-        logger.info(f"Uploaded to s3://{bucket}/{key}")
-        return True
-    except ClientError as e:
-        logger.error(f"Error uploading to S3: {str(e)}")
-        return False
+    except Exception as e:
+        print(f"Error uploading to S3: {e}")
+        raise
 
-def lambda_handler(event, context):
-    # get bucket name and default url from environment
-    bucket = os.environ.get('S3_BUCKET_NAME')
-    default_url = os.environ.get('DEFAULT_URL', 'https://www.aa.com/i18n/travel-info/baggage/checked-baggage-policy.jsp')
-    if not bucket:
-        raise ValueError("S3_BUCKET_NAME environment variable is required")
-    url_to_scrape = event.get('url', default_url)
-    result = scrape_ssr_page(url_to_scrape)
-    timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
-    key = f"scraped_data/{timestamp}_{result['status']}.json"
-    success = upload_to_s3(result, bucket, key)
-    if success:
-        return {
-            'statusCode': 200,
-            'body': json.dumps({
-                'message': 'Scraping completed successfully',
-                'url': url_to_scrape,
-                'status': result['status'],
-                's3_location': f"s3://{bucket}/{key}",
-                'timestamp': result['timestamp']
-            })
-        }
-    else:
-        return {
-            'statusCode': 500,
-            'body': json.dumps({
-                'message': 'Scraping completed but S3 upload failed',
-                'url': url_to_scrape,
-                'status': result['status']
-            })
-        }
+    print("Source code uploaded successfully")
+    return {
+        'statusCode': 200,
+        'message': 'Source code uploaded successfully',
+        'bucket_name': bucket_name,
+        'source_code_key': output_key
+    }
+
+def handler(event, context):
+    """Lambda handler wrapping the async main function."""
+    return asyncio.run(main(event))
