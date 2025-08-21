@@ -57,6 +57,7 @@ jobs:
       run: |
         aws lambda invoke \
           --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
+          --cli-binary-format raw-in-base64-out \
           --payload '{"url":"https://www.aa.com/i18n/travel-info/baggage/checked-baggage-policy.jsp"}' \
           response.json
         cat response.json
