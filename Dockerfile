@@ -1,11 +1,15 @@
-# Use Ubuntu-based Python 3.11 image (GLIBC >= 2.28)
+# Use Ubuntu-based Python 3.11 image for GLIBC >= 2.28
 FROM python:3.11-slim
 
-# Install system dependencies for Playwright/Chromium
+# Set working directory
+WORKDIR /var/task
+
+# Install system dependencies required by Playwright/Chromium
 RUN apt-get update && apt-get install -y \
     wget \
     curl \
     gnupg \
+    ca-certificates \
     libnss3 \
     libatk1.0-0 \
     libatk-bridge2.0-0 \
@@ -25,12 +29,11 @@ RUN apt-get update && apt-get install -y \
     libxfixes3 \
     libxrender1 \
     libxtst6 \
-    ca-certificates \
     ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
-# Set working directory
-WORKDIR /var/task
+# Set Playwright browser path to Lambda-accessible directory
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
 # Copy Python dependencies
 COPY requirements.txt .
@@ -45,7 +48,7 @@ RUN pip install --no-cache-dir awslambdaric
 RUN pip install --no-cache-dir playwright==1.32.0 \
     && playwright install chromium
 
-# Copy Lambda function
+# Copy Lambda function code
 COPY lambda_function.py .
 
 # Set Lambda entrypoint
