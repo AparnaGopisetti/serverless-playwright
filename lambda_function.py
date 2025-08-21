@@ -27,13 +27,13 @@ async def download_page_content(browser, url):
     page = await context.new_page()
     try:
         print(f"Navigating to URL: {url}")
-        await page.goto(url, timeout=60000)
+        await page.goto(url, timeout=600000)
         try:
-            await page.wait_for_load_state('networkidle', timeout=60000)
+            await page.wait_for_load_state('networkidle', timeout=6000000)
         except Exception as e:
             print(f"Network idle state timed out: {e}")
         await scroll_to_bottom(page)
-        await page.wait_for_timeout(50000)
+        await page.wait_for_timeout(6000000)
         content = await page.content()
         print("Page content obtained.")
         return content
