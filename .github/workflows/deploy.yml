@@ -40,4 +40,4 @@ jobs:
     - name: Deploy with SAM
       run: |
         sam build
-        sam deploy --no-confirm-changeset --no-fail-on-empty-changeset --stack-name playwright-scraper-stack --capabilities CAPABILITY_IAM --region ${{ secrets.AWS_REGION }}
+        sam deploy --no-confirm-changeset --no-fail-on-empty-changeset --stack-name playwright-scraper-stack --capabilities CAPABILITY_IAM --region ${{ secrets.AWS_REGION }} --image-repository ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/playwright-scraper
