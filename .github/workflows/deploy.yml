@@ -1,4 +1,4 @@
-name: Build, Push, Deploy, and Test Playwright Scraper
+name: Build and Deploy Playwright Scraper
 
 on:
   push:
@@ -15,45 +15,49 @@ jobs:
       ECR_REPOSITORY: playwright-scraper
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v2
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ${{ secrets.AWS_REGION }}
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
 
-    - name: Login to Amazon ECR
-      uses: aws-actions/amazon-ecr-login@v1
+      - name: Login to Amazon ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
 
-    - name: Build Docker image
-      run: |
-        docker build -t ${{ env.ECR_REPOSITORY }} .
+      - name: Build Docker image
+        run: |
+          docker build -t ${{ env.ECR_REPOSITORY }} .
 
-    - name: Tag Docker image with Git SHA
-      run: |
-        IMAGE_TAG=${GITHUB_SHA::8}
-        IMAGE_URI=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:$IMAGE_TAG
-        docker tag ${{ env.ECR_REPOSITORY }}:latest $IMAGE_URI
-        echo "IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV
+      - name: Tag Docker image with Git SHA
+        run: |
+          IMAGE_TAG=${GITHUB_SHA::8}
+          IMAGE_URI=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:$IMAGE_TAG
+          docker tag ${{ env.ECR_REPOSITORY }}:latest $IMAGE_URI
+          echo "IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV
 
-    - name: Push Docker image to Amazon ECR
-      run: |
-        docker push $IMAGE_URI
+      - name: Push Docker image to Amazon ECR
+        run: |
+          docker push $IMAGE_URI
 
-    - name: Update Lambda to use new image
-      run: |
-        aws lambda update-function-code \
-          --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
-          --image-uri $IMAGE_URI
+      - name: Deploy Lambda via SAM
+        run: |
+          sam build
+          sam deploy --no-confirm-changeset --no-fail-on-empty-changeset \
+            --stack-name playwright-scraper-stack \
+            --capabilities CAPABILITY_IAM \
+            --region ${{ secrets.AWS_REGION }} \
+            --image-repository $IMAGE_URI
 
-    - name: Test Lambda
-      run: |
-        aws lambda invoke \
-          --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
-          --cli-binary-format raw-in-base64-out \
-          --payload '{"url":"https://www.aa.com/i18n/travel-info/baggage/checked-baggage-policy.jsp"}' \
-          response.json
-        cat response.json
+      - name: Test Lambda
+        run: |
+          aws lambda invoke \
+            --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
+            --cli-binary-format raw-in-base64-out \
+            --payload '{"url":"https://www.aa.com/i18n/travel-info/baggage/checked-baggage-policy.jsp"}' \
+            response.json
+          cat response.json
