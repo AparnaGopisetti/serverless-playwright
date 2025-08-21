@@ -1,0 +1,53 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Serverless Playwright Scraper
+
+Globals:
+  Function:
+    Timeout: 300
+    MemorySize: 2048
+
+Parameters:
+  S3BucketName:
+    Type: String
+    Default: playwright-scraper-bucket
+    Description: S3 bucket name for scraped data
+
+Resources:
+  PlaywrightFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      PackageType: Image
+      ImageUri: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/playwright-scraper:latest"
+      Environment:
+        Variables:
+          S3_BUCKET_NAME: !Ref S3BucketName
+          DEFAULT_URL: "https://www.aa.com/i18n/travel-info/baggage/checked-baggage-policy.jsp"
+      Policies:
+        - S3WritePolicy:
+            BucketName: !Ref S3BucketName
+        - CloudWatchLogsFullAccess
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /scrape
+            Method: post
+
+  ScrapedDataBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref S3BucketName
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+Outputs:
+  ApiEndpoint:
+    Description: "API Gateway endpoint for Playwright scraper"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/scrape/"
+  S3BucketName:
+    Description: "S3 bucket for scraped data"
+    Value: !Ref ScrapedDataBucket

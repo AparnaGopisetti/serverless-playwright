@@ -1,0 +1,3 @@
+playwright==1.41.0
+boto3>=1.26.0
+awslambdaric>=2.0.0
