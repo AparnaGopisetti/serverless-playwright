@@ -4,7 +4,7 @@ FROM public.ecr.aws/lambda/python:3.11
 # Set working directory
 WORKDIR /var/task
 
-# Install system dependencies required by Playwright
+# Install system dependencies required by Playwright/Chromium
 RUN yum install -y \
     libX11 \
     glib2 \
@@ -30,20 +30,21 @@ RUN yum install -y \
     xorg-x11-server-Xvfb \
     && yum clean all
 
-# Copy Python dependencies and install
-COPY requirements.txt .
+# Upgrade pip
 RUN pip install --upgrade pip
+
+# Install Playwright globally so the CLI is available for browser installation
+RUN pip install playwright
+
+# Install Chromium browser with required dependencies
+RUN playwright install --with-deps chromium
+
+# Copy Python dependencies and install into Lambda task root
+COPY requirements.txt .
 RUN pip install -r requirements.txt --target "${LAMBDA_TASK_ROOT}"
 
 # Copy Lambda function code
 COPY lambda_function.py .
 
-# Install Playwright browsers
-RUN pip install playwright --target "${LAMBDA_TASK_ROOT}" \
-    && playwright install --with-deps chromium
-
 # Set the Lambda handler
 CMD ["lambda_function.lambda_handler"]
-
-
-
