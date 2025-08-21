@@ -1,10 +1,12 @@
 # lambda_function.py
 import asyncio
 import boto3
+import json
 from urllib.parse import urlparse
 from playwright.async_api import async_playwright
 
 URLS_FILE = "urls.json"
+
 
 async def scroll_to_bottom(page):
     """Scroll to the bottom of a page to load dynamic content."""
