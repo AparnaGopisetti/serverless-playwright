@@ -1,9 +1,7 @@
-# ===========================
-# Stage 1: Build dependencies
-# ===========================
 # Define custom function directory
 ARG FUNCTION_DIR="/function"
 
+# FROM mcr.microsoft.com/playwright/python:v1.31.0-focal as build-image
 FROM mcr.microsoft.com/playwright/python:v1.45.0-jammy as build-image
 
 # Install aws-lambda-cpp build dependencies
@@ -28,34 +26,34 @@ RUN apt-get update && \
   pciutils \
   xdg-utils
 
+# Include global arg in this stage of the build
 ARG FUNCTION_DIR
-RUN mkdir -p ${FUNCTION_DIR}
 
 # Copy function code
+RUN mkdir -p ${FUNCTION_DIR}
 COPY . ${FUNCTION_DIR}
 
-# Install Lambda Runtime Interface Client
-RUN pip install --target ${FUNCTION_DIR} awslambdaric
+# Install the function's dependencies
+RUN pip install \
+    --target ${FUNCTION_DIR} \
+        awslambdaric
 
-# Install Playwright + Chromium
-RUN pip install --target ${FUNCTION_DIR} playwright==1.32.0 \
-    && playwright install chromium
-
-# Install other dependencies from requirements.txt
+# Add requirements.txt and install dependencies
 COPY requirements.txt .
 RUN pip install --target ${FUNCTION_DIR} -r requirements.txt
 
-# ===========================
-# Stage 2: Final image
-# ===========================
+# Multi-stage build: grab a fresh copy of the base image
 FROM mcr.microsoft.com/playwright/python:v1.45.0-jammy
 
+# Include global arg in this stage of the build
 ARG FUNCTION_DIR
+# Set working directory to function root directory
 WORKDIR ${FUNCTION_DIR}
 
-# Copy built dependencies from build stage
+# Copy in the built dependencies
 COPY --from=build-image ${FUNCTION_DIR} ${FUNCTION_DIR}
 
-# Lambda runtime
-ENTRYPOINT ["python", "-m", "awslambdaric"]
-CMD ["lambda_function.handler"]
+# Set runtime interface client as default command for the container runtime
+ENTRYPOINT [ "python", "-m", "awslambdaric" ]
+# Pass the name of the function handler as an argument to the runtime
+CMD [ "lambda_function.handler" ]
