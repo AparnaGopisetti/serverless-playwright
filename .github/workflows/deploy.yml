@@ -3,7 +3,7 @@ name: Build and Deploy Playwright Scraper
 on:
   push:
     branches:
-      - main  # change if your default branch is different
+      - master  # change if your default branch is different
 
 jobs:
   build:
