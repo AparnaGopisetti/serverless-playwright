@@ -33,7 +33,7 @@ async def download_page_content(browser, url):
         except Exception as e:
             print(f"Network idle state timed out: {e}")
         await scroll_to_bottom(page)
-        await page.wait_for_timeout(5000)
+        await page.wait_for_timeout(50000)
         content = await page.content()
         print("Page content obtained.")
         return content
