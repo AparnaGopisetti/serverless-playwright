@@ -1,4 +1,4 @@
-name: Build and Deploy Playwright Scraper
+name: Build, Push, Deploy, and Test Playwright Scraper
 
 on:
   push:
@@ -26,8 +26,7 @@ jobs:
         aws-region: ${{ secrets.AWS_REGION }}
 
     - name: Login to Amazon ECR
-      id: ecr-login
-      uses: aws-actions/amazon-ecr-login@v2
+      uses: aws-actions/amazon-ecr-login@v1
 
     - name: Build Docker image
       run: |
@@ -44,14 +43,11 @@ jobs:
       run: |
         docker push $IMAGE_URI
 
-    - name: Deploy with SAM
+    - name: Update Lambda to use new image
       run: |
-        sam build
-        sam deploy --no-confirm-changeset --no-fail-on-empty-changeset \
-          --stack-name playwright-scraper-stack \
-          --capabilities CAPABILITY_IAM \
-          --region ${{ secrets.AWS_REGION }} \
-          --image-repository $IMAGE_URI
+        aws lambda update-function-code \
+          --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
+          --image-uri $IMAGE_URI
 
     - name: Test Lambda
       run: |
