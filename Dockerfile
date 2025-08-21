@@ -1,22 +1,22 @@
+# Use AWS Lambda Python 3.11 base image
 FROM public.ecr.aws/lambda/python:3.11
 
+# Set working directory
 WORKDIR /var/task
 
-# System dependencies for Chromium
-RUN yum install -y \
-    libX11 glib2 gtk3 atk pango cups-libs \
-    libXcomposite libXcursor libXdamage libXext libXi \
-    libXtst alsa-lib libdrm libgbm nss \
-    xorg-x11-server-Xvfb \
-    && yum clean all
-
-# Upgrade pip and install Python deps
+# Copy Python dependencies file
 COPY requirements.txt .
-RUN pip install --upgrade pip
-RUN pip install --target "${LAMBDA_TASK_ROOT}" -r requirements.txt
 
-# Copy Lambda function
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Install Playwright and required browsers
+RUN pip install --no-cache-dir playwright \
+    && playwright install --with-deps chromium
+
+# Copy Lambda function code
 COPY lambda_function.py .
 
-# Set Lambda handler
+# Lambda entrypoint (handler)
 CMD ["lambda_function.lambda_handler"]
+
