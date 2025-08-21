@@ -1,16 +1,22 @@
-# Lambda-ready Playwright Python image with compatible Chromium and GLIBC
-FROM ghcr.io/sponsors/playwright/python:1.42-lambda
+FROM public.ecr.aws/lambda/python:3.11
 
-# Set working directory
 WORKDIR /var/task
 
-# Copy Python dependencies and install into Lambda task root
-COPY requirements.txt .
-RUN pip install --upgrade pip \
-    && pip install -r requirements.txt --target "${LAMBDA_TASK_ROOT}"
+# System dependencies for Chromium
+RUN yum install -y \
+    libX11 glib2 gtk3 atk pango cups-libs \
+    libXcomposite libXcursor libXdamage libXext libXi \
+    libXtst alsa-lib libdrm libgbm nss \
+    xorg-x11-server-Xvfb \
+    && yum clean all
 
-# Copy your Lambda function code
+# Upgrade pip and install Python deps
+COPY requirements.txt .
+RUN pip install --upgrade pip
+RUN pip install --target "${LAMBDA_TASK_ROOT}" -r requirements.txt
+
+# Copy Lambda function
 COPY lambda_function.py .
 
-# Set the Lambda handler
+# Set Lambda handler
 CMD ["lambda_function.lambda_handler"]
