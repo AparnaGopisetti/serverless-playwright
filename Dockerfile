@@ -4,19 +4,40 @@ FROM public.ecr.aws/lambda/python:3.11
 # Set working directory
 WORKDIR /var/task
 
-# Copy Python dependencies file
+# Install system dependencies for Chromium
+RUN yum -y install \
+    libX11 \
+    glib2 \
+    gtk3 \
+    atk \
+    pango \
+    cups-libs \
+    libXcomposite \
+    libXcursor \
+    libXdamage \
+    libXext \
+    libXi \
+    libXtst \
+    alsa-lib \
+    libdrm \
+    libgbm \
+    nss \
+    ffmpeg \
+    ca-certificates \
+    && yum clean all
+
+# Copy Python dependencies
 COPY requirements.txt .
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Install Playwright and required browsers
+# Install Playwright and Chromium
 RUN pip install --no-cache-dir playwright \
-    && playwright install --with-deps chromium
+    && playwright install chromium
 
-# Copy Lambda function code
+# Copy Lambda function
 COPY lambda_function.py .
 
-# Lambda entrypoint (handler)
+# Set Lambda entrypoint
 CMD ["lambda_function.lambda_handler"]
-
