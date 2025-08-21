@@ -6,7 +6,7 @@ from urllib.parse import urlparse
 from playwright.async_api import async_playwright, Error as PWError
 
 # ---- Config ----
-URLS_FILE = os.getenv("URLS_FILE", "/var/task/urls.json")
+URLS_FILE = "urls.json"
 MAX_CONCURRENCY = int(os.getenv("MAX_CONCURRENCY", "2"))  # tune for Lambda memory
 NAV_TIMEOUT_MS = int(os.getenv("NAV_TIMEOUT_MS", "60000"))  # 1 min
 
