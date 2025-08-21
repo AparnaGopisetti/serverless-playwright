@@ -1,2 +1,4 @@
-boto3>=1.26.0
-requests>=2.31.0  # optional, only if your scraping logic uses it
+boto3
+beautifulsoup4
+requests
+playwright==1.45.0
