@@ -32,9 +32,7 @@ async def download_page_content(url):
             args=[
                 "--disable-gpu",
                 "--no-sandbox",
-                "--single-process",
                 "--disable-dev-shm-usage",
-                "--no-zygote",
                 "--disable-setuid-sandbox",
                 "--disable-accelerated-2d-canvas",
                 "--no-first-run",
