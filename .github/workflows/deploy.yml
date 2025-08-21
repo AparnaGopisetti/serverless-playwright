@@ -7,8 +7,12 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
+
+    env:
+      LAMBDA_FUNCTION_NAME: playwright-scraper-stack-PlaywrightFunction-9QN1yQgRiznl
+      ECR_REPOSITORY: playwright-scraper
 
     steps:
     - name: Checkout repository
@@ -23,21 +27,36 @@ jobs:
 
     - name: Login to Amazon ECR
       id: ecr-login
-      uses: aws-actions/amazon-ecr-login@v1
+      uses: aws-actions/amazon-ecr-login@v2
 
     - name: Build Docker image
       run: |
-        docker build -t playwright-scraper .
+        docker build -t ${{ env.ECR_REPOSITORY }} .
 
-    - name: Tag Docker image
+    - name: Tag Docker image with Git SHA
       run: |
-        docker tag playwright-scraper:latest ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/playwright-scraper:latest
+        IMAGE_TAG=${GITHUB_SHA::8}
+        IMAGE_URI=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:$IMAGE_TAG
+        docker tag ${{ env.ECR_REPOSITORY }}:latest $IMAGE_URI
+        echo "IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV
 
     - name: Push Docker image to Amazon ECR
       run: |
-        docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/playwright-scraper:latest
+        docker push $IMAGE_URI
 
     - name: Deploy with SAM
       run: |
         sam build
-        sam deploy --no-confirm-changeset --no-fail-on-empty-changeset --stack-name playwright-scraper-stack --capabilities CAPABILITY_IAM --region ${{ secrets.AWS_REGION }} --image-repository ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/playwright-scraper
+        sam deploy --no-confirm-changeset --no-fail-on-empty-changeset \
+          --stack-name playwright-scraper-stack \
+          --capabilities CAPABILITY_IAM \
+          --region ${{ secrets.AWS_REGION }} \
+          --image-repository $IMAGE_URI
+
+    - name: Test Lambda
+      run: |
+        aws lambda invoke \
+          --function-name ${{ env.LAMBDA_FUNCTION_NAME }} \
+          --payload '{"url":"https://www.aa.com/i18n/travel-info/baggage/checked-baggage-policy.jsp"}' \
+          response.json
+        cat response.json
