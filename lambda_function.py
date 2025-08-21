@@ -93,12 +93,12 @@ async def _fetch_once(p, url):
         await page.goto(url, wait_until="domcontentloaded", timeout=NAV_TIMEOUT_MS)
         # Best-effort: try to reach network idle, but don't die if it doesn't
         try:
-            await page.wait_for_load_state("networkidle", timeout=30_000)
+            await page.wait_for_load_state("networkidle", timeout=300000)
         except Exception:
             pass
 
         await scroll_to_bottom(page)
-        await page.wait_for_timeout(2_000)
+        await page.wait_for_timeout(20000)
         content = await page.content()
         return content
     finally:
