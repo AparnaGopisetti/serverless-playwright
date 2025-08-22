@@ -51,7 +51,7 @@ async def main(event=None):
         data = json.load(f)
 
     bucket_name = data.get("bucket") or "playwright-scraper-bucket"
-    urls = data.get("urls", [])
+    urls = [u for u in data.get("urls", []) if isinstance(u, str) and u.strip()]
 
     s3_client = boto3.client('s3')
     results = []
@@ -69,9 +69,9 @@ async def main(event=None):
             ]
         )
 
-        for url in urls:
+        for idx, url in enumerate(urls):
+            print(f"Processing URL {idx+1}/{len(urls)}: {url}")
             try:
-                print(f"Starting scrape of URL: {url}")
                 content = await download_page_content(browser, url)
                 path = urlparse(url).path
                 filename = (path.rstrip('/').split('/')[-1] or "index") + ".html"
